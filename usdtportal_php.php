@@ -1,36 +1,36 @@
 <?php
 
-class USDT_Portal_Service
+class USDT_Portal
 {
     private $gateway_url = "https://usdtportal.com/api/";
-    private $orderDetails = [];
     private $args = [];
     public $http_code = 0;
-    private $configarray = [
-        'email' => 'your_email_from_usdtportal', // [YOUR USDTPORTAL EMAIL] your_email@gmail.com
-        'api_key' => 'apiKey_from_usdtportal', // [YOUR API KEY FROM USDTPORTAL] A0FL-GKLS-9K!i-Dktk-DKt$
-        'callback_url_password' => 'your_callback_password_from_usdtportal', // [YOUR CALLBACK PASSWORD FROM USDTPORTAL] kf9iaj9JJF9rg78fahn389ungri8
-    ];
+	private $email;
+	private $api_key;
+	public $err;
 
-    public function __construct($orderDetails) {
-        $this->orderDetails = $orderDetails;
+	public function set_access($email, $api_key) {
+		$this->email = $email;
+		$this->api_key = $api_key;
+	}
 
-        $this->args = [
-            'action' => 'new', // DON'T CHANGE
+	public function set_order($userEmail, $amount, $order_id, $redirect_paid, $redirect_canceled) {
+		$this->args = [
+			'action' => 'new',
             "merchant" => [
-                'email' => $this->configarray['email'],  // DON'T CHANGE
-                'api_key' => $this->configarray['api_key'],  // DON'T CHANGE
+                'email' => $this->email,  // DON'T CHANGE
+                'api_key' => $this->api_key,  // DON'T CHANGE
             ],
             "customer" => [
-                'user_email' => $this->params["clientdetails"]["email"], //[Your Customer Email] example@gmail.com
-                'amount' => ($this->params["amount"] - $this->params["invtax"]), //[Amount user try to add ONLY INTIGER VALUE] 10.50
-                'currency' => strtoupper($params['currency']) // [ONLY USD IS ACCEPTABLE] USD
+                'user_email' => $userEmail, //[Your Customer Email] example@gmail.com
+                'amount' => $amount, //[Amount user try to add ONLY INTIGER VALUE] 10.50
+                'currency' => strtoupper("USD") // [ONLY USD IS ACCEPTABLE] USD
             ],
-            'order_id' => $this->params["invoiceid"], //[YOUR TRANSACTION ID INTERNALLY, CAN BE INREMENTAL IN YOUR SYSTEM 1,2,3,4...1049...]
-            'redirect_paid' => $this->params['systemurl'] . 'settings/statement', // [URL TO REDIRECT CUSTOMER AFTER SUCCESSFULL PAYMENT]
-            'redirect_canceled' => $this->params['systemurl'] . 'main', // [URL TO REDIRECT CUSTOMER AFTER HE CANCEL PAYMENT]
-        ];
-    }
+            'order_id' => $order_id, //[YOUR TRANSACTION ID INTERNALLY, CAN BE INREMENTAL IN YOUR SYSTEM 1,2,3,4...1049...]
+            'redirect_paid' => $redirect_paid, // [URL TO REDIRECT CUSTOMER AFTER SUCCESSFULL PAYMENT]
+            'redirect_canceled' => $redirect_canceled, // [URL TO REDIRECT CUSTOMER AFTER HE CANCEL PAYMENT]
+		];
+	}
    
     public function generate_link() {
         $ch = curl_init();
@@ -47,38 +47,36 @@ class USDT_Portal_Service
         curl_close($ch);
         return json_decode($response);
     }
+
+	public function verify_payment($transaction_id) {
+		$args = [
+			"action" => "status",
+			"merchant" => [
+				"email" => $this->email,
+				"api_key" => $this->api_key
+			],
+			"transaction_id" => $transaction_id,
+		];
+		
+		$curl = curl_init();
+		curl_setopt($curl, CURLOPT_URL, "https://usdtportal.com/api/");
+		curl_setopt($curl, CURLOPT_POST, TRUE);
+		curl_setopt($curl, CURLOPT_HEADER, FALSE);
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, TRUE);
+		curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($args));
+		curl_setopt($curl, CURLOPT_HTTPHEADER, ["Content-Type:application/x-www-form-urlencoded;charset=UTF-8"]);
+		$response = curl_exec($curl);
+		$http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		curl_close($curl);
+
+		$transaction_details = json_decode($response);
+		$this->err = $response;
+		if (isset($transaction_details->transaction_status) && $transaction_details->transaction_status == "paid") {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+
 }
-
-
-function usdtportal_link()
-{   $orderDetails = newOrder(); // LOAD ORDER DETAILS
-    $client = new USDT_Portal_Service($orderDetails); // PASS ORDER DETAILS TO USDTPORTAL CLASS
-    $server_response = $client->generate_link(); // USDTPORTAL JSON RESPONSE WITH URL TO THE PAYMENT THAT YOU REDIRECT CUSTOMER OR PUT LINK UNDER BUTTON TO CLICK PAY
-
-    if($client->http_code === 403) {
-        return '<p style="color:red;">Please whitelist your Server IP from <a style="color:#FF5555;" href="https://usdtportal.com/panel" target="_blank" style="color:red;">Merchant Panel</a></p>';
-    }
-
-    if($client->http_code !== 200) {
-        // usdt portal server is offline
-    }
-
-    if (!$server_response->auth || $server_response->error) {
-        // usdtportal returned an error 
-        echo $server_response->message;
-    }
-
-    if (isset($server_response->message) AND strlen($server_response->message) > 1) {
-        // $server_response->url - payment link
-        return '<a class="btn btn-success pt-3 pb-3" style="width: 100%; background-color: green!important;" href="'.$server_response->url.'">Pay Now<br><span>'.$server_response->message.'</span>';
-    } else {
-        return '<a class="btn btn-success pt-3 pb-3" style="width: 100%; background-color: green!important;" href="'.$server_response->url.'">'.$lng_languag["invoicespaynow"].'</a>';
-    }
-}
-
-
-
-function newOrder() {
-    // function for preocessing new payment in your system and passing information about order like amount, email of user etc
-}
-?>
