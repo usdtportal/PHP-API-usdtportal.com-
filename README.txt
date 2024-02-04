@@ -1,4 +1,4 @@
-ALL TESTS CAN BE DONE AT https://developer.usdtportal.com/
+ALL TESTS CAN BE DONE AT https://developer.usdtportal.com/, remember to change url in all reqests during test to https://developer.usdtportal.com/api, after test change it back to https://usdtportal.com/api/ 
 
 
 <!-- Getting Payment Link: -->
